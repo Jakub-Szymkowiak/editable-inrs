@@ -5,11 +5,12 @@ def get_config():
         "device": "cuda",
         "model": {
             "anchors": {
+                "type": "gaussian",
                 "resolution": 256,
                 "aspect_ratio": 16/9,
             },
             "bridge": {
-                "k": 32,
+                "k": 16,
                 "bandwidth": 0.07,
                 "chunk_size": 4096,
             },
@@ -18,12 +19,12 @@ def get_config():
                 "n_levels": 16,
                 "n_features_per_level": 8,
                 "log2_hashmap_size": 19,
-                "base_resolution": 16,
+                "base_resolution": 32,
                 "per_level_scale": 1.5,
             },
             "decoder": {
                 "out_dim": 3,
-                "hidden_width": 512,
+                "hidden_width": 64,
                 "num_layers": 3,
                 "activation": torch.nn.SiLU,
                 "final_activation": None,

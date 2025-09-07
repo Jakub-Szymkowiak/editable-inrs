@@ -54,17 +54,17 @@ class Trainer:
         self.save_result(output_path)
     
     def _backprop(self, batch_size: int):
-            coords, colors = self.dataset.draw_pixels_batch(size=batch_size)
+        coords, colors = self.dataset.draw_pixels_batch(size=batch_size)
 
-            preds = self.model(coords)
-            loss = F.l1_loss(preds, colors)
+        preds = self.model(coords)
+        loss = F.l1_loss(preds, colors)
 
-            loss.backward()
+        loss.backward()
 
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
-            return loss
+        return loss
 
     @torch.no_grad
     def _post_backprop(self, loss: float, iteration: int, eval: bool):

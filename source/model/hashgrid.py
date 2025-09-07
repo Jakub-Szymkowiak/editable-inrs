@@ -12,6 +12,7 @@ class HashGrid(nn.Module):
             log2_hashmap_size:     int = 19,
             base_resolution:       int = 16,
             per_level_scale:       float = 1.5,
+            dtype = torch.float16
         ):
 
         super().__init__()
@@ -26,7 +27,7 @@ class HashGrid(nn.Module):
                 "log2_hashmap_size":    log2_hashmap_size,
                 "base_resolution":      base_resolution,
                 "per_level_scale":      per_level_scale,
-            }, dtype=torch.float32)
+            }, dtype=dtype)
 
         self.out_dim = n_levels * n_features_per_level
 
