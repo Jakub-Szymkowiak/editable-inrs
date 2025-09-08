@@ -5,14 +5,34 @@ import torch.nn as nn
 
 
 class AnchorsBase(nn.Module, ABC):
-    def __init__(self):
+    def __init__(self, positions: torch.Tensor, margin: float=1e-3):
         super().__init__()
 
+        assert 0 <= margin < 0.1, \
+            f"Margin must be in [0, 0.1); got margin={margin}"
+        
+        self._margin = margin
+
+        assert positions.ndim == 2 and positions.size(-1) == 2, \
+            "positions must be (N,2)"
+        
+        _positions_raw = self._positions_activation_inverse(positions)
+        self._positions_raw = nn.Parameter(_positions_raw)
+
+    def _positions_activation(self, latent: torch.Tensor):
+        m = self._margin
+        return m + (1.0 - 2.0 * m) * latent.sigmoid()
+
+    def _positions_activation_inverse(self, pos: torch.Tensor):
+        m = self._margin
+        return torch.logit((pos - m) / (1.0 - 2.0 * m), eps=1e-6)
+
     @property
-    @abstractmethod
     def positions(self):
-        """Anchor positions, shape (N, D)."""
-        raise NotImplementedError
+        return self._positions_activation(self._positions_raw)
+    
+    def expose_param_dict(self):
+        return { "pos": self._positions_raw }
 
     @abstractmethod
     def scores_for(self, coords: torch.Tensor, idx: torch.Tensor):

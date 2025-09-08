@@ -13,14 +13,11 @@ class ScalarAnchors(AnchorsBase):
                 eps:       float = 1e-12
         ):
         
-        super().__init__()
+        super().__init__(positions=positions)
 
-        assert positions.ndim == 2 and positions.size(-1) == 2, \
-            "positions must be (N,2)"
         assert weights.ndim == 1 and weights.size(0) == positions.size(0), \
             "weights must be (N,)"
         
-        self._positions = nn.Parameter(positions)
         self._weights   = nn.Parameter(weights)
         self.eps = eps
 
@@ -30,6 +27,11 @@ class ScalarAnchors(AnchorsBase):
 
     def forward(self):
         return self._positions, self._weights
+    
+    def expose_param_dict(self):
+        return super().expose_param_dict() | { 
+            "weights": self._weights
+        }
 
     @classmethod
     def from_grid(cls, resolution: int, aspect_ratio: float = 1.0):
@@ -68,12 +70,12 @@ class ScalarAnchors(AnchorsBase):
         assert idx.ndim == 2 and idx.size(0) == coords.size(0)
 
         precision = (self._weights[idx] ** 2).clamp_min(self.eps).reciprocal()
-        return -0.5 * precision * sqdist
+        return torch.exp(-0.5 * precision * sqdist)
 
     def show_stats(self): return {
-            "anchors/num":    self._positions.size(0),
-            "anchors/mean_x": self._positions[:, 0].mean().item(),
-            "anchors/mean_y": self._positions[:, 1].mean().item(),
+            "anchors/num":    self.positions.size(0),
+            "anchors/mean_x": self.positions[:, 0].mean().item(),
+            "anchors/mean_y": self.positions[:, 1].mean().item(),
             "anchors/mean_w": self._weights.mean().item(),
             "anchors/std_w":  self._weights.std().item(),
         }

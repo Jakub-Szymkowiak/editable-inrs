@@ -35,7 +35,7 @@ def parse_arguments():
 
     parser.add_argument(
         "--eval_interval",
-        type=int, default=10
+        type=int, default=50
     )
 
     parser.add_argument(
@@ -65,7 +65,7 @@ def process_arguments(args):
         assert image_path.suffix.lower() in { ".png", ".jpg", ".jpeg" }, \
             f"Not a valid image file; expected a .png / .jpg / .jpeg file"
 
-        name = image_path.parent.name
+        name = image_path.stem
         return image_path, name
 
     def _process_out(o: str, name: str):

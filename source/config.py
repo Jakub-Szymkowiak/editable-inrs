@@ -6,13 +6,12 @@ def get_config():
         "model": {
             "anchors": {
                 "type": "gaussian",
-                "resolution": 256,
+                "resolution": 128,
                 "aspect_ratio": 16/9,
             },
             "bridge": {
                 "k": 16,
-                "bandwidth": 0.07,
-                "chunk_size": 4096,
+                "chunk_size": 1024,
             },
             "hashgrid": {
                 "n_input_dims": 2,
@@ -24,8 +23,8 @@ def get_config():
             },
             "decoder": {
                 "out_dim": 3,
-                "hidden_width": 64,
-                "num_layers": 3,
+                "hidden_width": 256,
+                "num_layers": 2,
                 "activation": torch.nn.SiLU,
                 "final_activation": None,
             },
@@ -35,31 +34,11 @@ def get_config():
             "args": { "betas": (0.9, 0.999) },
             "mode": "mul",
             "groups": {
-                "anchors": {
-                    "lr": 5e-3,
-                    "rule": {
-                        "name": "cosine",
-                        "args": { "value_start": 1.0,
-                                  "value_end": 0.3,
-                                  "steps": 2000 }
-                    },
-                },
-                "decoder": {
-                    "lr": 1e-2,
-                    "rule": {
-                        "name": "cosine",
-                        "args": { "value_start": 1.0,
-                                  "value_end": 0.1,
-                                  "steps": 2000 }
-                    },
-                },
-                "hashgrid": {
-                    "lr": 1e-2,
-                    "rule": {
-                        "name": "constant",
-                        "args": { "value": 1.0 }
-                    },
-                },
-            },
-        },
+                "anchors_pos": { "lr": 1e-2, "rule": {"name": "cosine", "args": {"value_start": 1.0, "value_end": 0.2, "steps": 5000}}},
+                "anchors_scl": { "lr": 3e-7, "rule": {"name": "cosine", "args": {"value_start": 1.0, "value_end": 0.2, "steps": 5000}}},
+                "anchors_ang": { "lr": 1e-3, "rule": {"name": "cosine", "args": {"value_start": 1.0, "value_end": 0.2, "steps": 5000}}},
+                "decoder":     { "lr": 7e-3, "rule": {"name": "cosine", "args": {"value_start": 1.0, "value_end": 0.05, "steps": 5000}}},
+                "hashgrid":    { "lr": 7e-3, "rule": {"name": "cosine", "args": {"value_start": 1.0, "value_end": 0.2,  "steps": 5000}}}
+            }
+        }
     }

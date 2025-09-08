@@ -11,30 +11,31 @@ class GaussianAnchors(AnchorsBase):
             positions:  torch.Tensor,
             log_scales: torch.Tensor,
             angles:     torch.Tensor,
+            beta:       float = 1.0,
             eps:        float = 1e-12,
         ):
 
-        super().__init__()
+        super().__init__(positions=positions)
 
-        assert positions.ndim == 2 and positions.size(-1) == 2, \
-            "positions must be (N,2)"
         assert log_scales.shape == positions.shape, \
             "log_scales must be (N,2)"
         assert angles.ndim == 1 and angles.size(0) == positions.size(0), \
             "angles must be (N,)"
 
-        self._positions  = nn.Parameter(positions)
         self._log_scales = nn.Parameter(log_scales)
         self._angles     = nn.Parameter(angles)
 
-        self.eps         = eps
-
-    @property
-    def positions(self):
-        return self._positions
+        self.beta = beta
+        self.eps  = eps
 
     def forward(self):
-        return self._positions, self._log_scales, self._angles
+        return self.positions, self._log_scales, self._angles
+    
+    def expose_param_dict(self):
+        return super().expose_param_dict() | { 
+            "scl": self._log_scales,
+            "ang": self._angles
+        }
 
     @classmethod
     def from_grid(cls, resolution: int, aspect_ratio: float = 1.0):
@@ -57,9 +58,9 @@ class GaussianAnchors(AnchorsBase):
     def show_stats(self):
         scales = torch.exp(self._log_scales)
         return {
-            "anchors/num":     self._positions.size(0),
-            "anchors/mean_x":  self._positions[:, 0].mean(),
-            "anchors/mean_y":  self._positions[:, 1].mean(),
+            "anchors/num":     self.positions.size(0),
+            "anchors/mean_x":  self.positions[:, 0].mean(),
+            "anchors/mean_y":  self.positions[:, 1].mean(),
             "anchors/mean_sx": scales[:, 0].mean(),
             "anchors/mean_sy": scales[:, 1].mean(),
         }
@@ -74,7 +75,7 @@ class GaussianAnchors(AnchorsBase):
         assert coords.ndim == 2 and coords.size(-1) == 2
         assert idx.ndim == 2 and idx.size(0) == coords.size(0)
 
-        p  = self._positions[idx]
+        p  = self.positions[idx]
         offsets  = coords.unsqueeze(1) - p
 
         cosines = torch.cos(self._angles[idx])
@@ -93,4 +94,4 @@ class GaussianAnchors(AnchorsBase):
 
         q = (dxp * dxp) * inv_var_x + (dyp * dyp) * inv_var_y
 
-        return -0.5 * q
+        return torch.exp(-0.5 * q)

@@ -9,7 +9,6 @@ class Bridge(nn.Module):
             self,
             k:          int   = 8, 
             chunk_size: int   = 4096,
-            bandwidth:  float = 0.05, 
             eps:        float = 1e-8,
         ):
 
@@ -18,7 +17,6 @@ class Bridge(nn.Module):
         self.k = k
         self.eps = eps
         self.chunk_size = chunk_size
-        self.temp = 2.0 * (bandwidth ** 2)
 
     def forward(
             self,
