@@ -28,9 +28,9 @@ class ScalarAnchors(AnchorsBase):
     def forward(self):
         return self._positions, self._weights
     
-    def expose_param_dict(self):
-        return super().expose_param_dict() | { 
-            "weights": self._weights
+    def expose_params(self):
+        return super().expose_params() | {
+            "w": ("_weights", self._weights),
         }
 
     @classmethod

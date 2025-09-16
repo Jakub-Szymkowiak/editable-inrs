@@ -14,9 +14,11 @@ from ..model import EditableINR
 from ..setup.dataset   import RGBImageDataset
 from ..setup.logger    import Logger
 from ..setup.optimizer import Optimizer
+from ..setup.schedule  import Directives, Schedule
 
 from .metrics import psnr
 from .progress_bar import ProgressBar
+from .losses import LossContext, LossFunction
 
 
 class Trainer:
@@ -24,63 +26,62 @@ class Trainer:
             self,
             model:        EditableINR, 
             dataset:      RGBImageDataset,
+            lossfunc:     LossFunction,
             optimizer:    Optimizer,
-            logger:       Logger,
-            lambda_dssim: float = 0.2
+            schedule:     Schedule,
+            logger:       Logger
         ):
         
-        self.model = model
-        self.dataset = dataset
+        self.model     = model
+        self.dataset   = dataset
+        self.lossfunc  = lossfunc
         self.optimizer = optimizer
-        self.logger = logger
+        self.schedule  = schedule
+        self.logger    = logger
 
-        self.lambda_dssim = lambda_dssim
 
     def start(
             self,
-            eval_iterations: Collection[int],
             batch_size:      int = 512,
             num_iterations:  int = 1_000,
             output_path:     Path | None = None
         ):
 
+        print(self.optimizer.get_anchors_lrs())
+
         progress_bar = ProgressBar(num_iterations)
         for _ in range(num_iterations):
             iteration = _ + 1
 
-            loss, regress_extra = self._regress(batch_size)
-            progress_bar.update(loss)
+            directives = self.schedule.make_directives(iteration)
 
-            eval = iteration in eval_iterations
-            self._post_backprop(loss, iteration, eval, regress_extra)
+            total, losses = self._regress(batch_size, directives)
+            progress_bar.update(total)
+
+            self._post_backprop(losses, directives, iteration)
 
         progress_bar.close()
         self.logger.close()
 
         self._finalize(output_path)
     
-    def _regress(self, batch_size: int):
-        # L1 on random pixels
+    def _regress(self, batch_size: int, directives: Directives):
         coords, colors = self.dataset.draw_pixels_batch(size=batch_size)
-
         preds = self.model(coords)
-        l1 = F.l1_loss(preds, colors)
 
-        # FSSIM on patches
-        H, W = 64, 64
-        coords, colors, _ = self.dataset.draw_random_patch(H=H, W=W)
+        ctx = LossContext(preds=preds, colors=colors, anchors=self.model.anchors)
+        total, losses = self.lossfunc(ctx=ctx, lws=directives.loss_weights)
 
-        preds = self.model(coords).view(1, H, W, 3).permute(0, 3, 1, 2)
-        ssim = fused_ssim(preds, colors)
-        
-        loss = (1.0 - self.lambda_dssim) * l1 + self.lambda_dssim * (1.0 - ssim)
+        total.backward()
 
-        loss.backward()
+        # gather gradients for densification / pruning decision
+        lrs = self.optimizer.get_anchors_lrs()
+        self.model.anchors.trimmer.update_grad_ema(self.model, lrs)
 
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        return loss.item(), { "l1": l1.item() }, # { "ssim": ssim.item(), "l1": l1.item() }
+        return total.item(), losses
 
     @torch.no_grad
     def _render_eval_image(self, upscale: int=1):
@@ -89,15 +90,27 @@ class Trainer:
         return self.dataset.reshape_pixels_to_image(preds, scale=upscale)
               
     @torch.no_grad
-    def _post_backprop(self, loss: float, iteration: int, eval: bool, regress_extra: dict[str, float | int]):
-        self.optimizer.update_lrs(iteration)
+    def _post_backprop(
+                self, 
+                losses:        dict[str | float], 
+                directives:    Directives, 
+                iteration:     int
+            ):
+        
+        # model maintenance
+        rebuild = self.model.anchors.trimmer(self.model, 
+            densify=directives.do_densify, prune=directives.do_prune)
+        if rebuild: self.optimizer = self.optimizer.rebuild(self.model)
 
-        self.logger.log_scalar(loss, iteration, key="loss")
-        self.logger.log_scalar_dict(regress_extra, iteration, key="loss_terms")
+        self.optimizer.update_lrs(directives.lr_multipliers)
+
+        # logging and eval
+        self.logger.log_scalar_dict(losses, iteration, key="loss")
 
         stats = self.optimizer.show_stats() | self.model.anchors.show_stats()
+        stats |= { "grad_ema_mean": self.model.anchors.grad_ema.mean() }
 
-        if eval: 
+        if directives.eval: 
             pred_image, metrics, eval_stats = self._eval()
             stats |= eval_stats
 
@@ -131,8 +144,8 @@ class Trainer:
         pred_image = self._render_eval_image().permute(2, 0, 1)
         save_image(pred_image, path / "image.png")
 
-        pred_image_16x = self._render_eval_image(upscale=16).permute(2, 0, 1)
-        save_image(pred_image_16x, path, "image_16x.png")
+        # pred_image_4x = self._render_eval_image(upscale=4).permute(2, 0, 1)
+        # save_image(pred_image_4x, path, "image_4x.png")
 
         self.model.export_anchors(path / "anchors.")
 

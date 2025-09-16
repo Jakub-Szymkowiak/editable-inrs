@@ -34,11 +34,6 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--eval_interval",
-        type=int, default=50
-    )
-
-    parser.add_argument(
         "-q", "--quiet",
         action="store_true"
     )
@@ -73,12 +68,6 @@ def process_arguments(args):
         output_path.mkdir(parents=True, exist_ok=True)
         return output_path
     
-    def _get_integer_list(max_iters: int, interval: int):
-        return (
-            list() if interval is None else 
-            list(range(1, max_iters + 1, interval))
-        )
-    
     if args.detect_anomaly:
         import torch ; torch.autograd.set_detect_anomaly(True)
 
@@ -97,7 +86,6 @@ def process_arguments(args):
     }
 
     train_args = {
-        "eval_iterations": _get_integer_list(args.iterations, args.eval_interval),
         "output_path":     _process_out(args.output, name),
         "batch_size":      args.batch_size, 
         "num_iterations":  args.iterations,

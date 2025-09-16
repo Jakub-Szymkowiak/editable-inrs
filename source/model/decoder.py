@@ -29,4 +29,5 @@ class Decoder(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor):
+        print(x.shape)
         return self.net(x)

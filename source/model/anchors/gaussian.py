@@ -31,10 +31,10 @@ class GaussianAnchors(AnchorsBase):
     def forward(self):
         return self.positions, self._log_scales, self._angles
     
-    def expose_param_dict(self):
-        return super().expose_param_dict() | { 
-            "scl": self._log_scales,
-            "ang": self._angles
+    def expose_params(self):
+        return super().expose_params() | {
+            "scl": ("_log_scales", self._log_scales),
+            "ang": ("_angles",     self._angles),
         }
 
     @classmethod

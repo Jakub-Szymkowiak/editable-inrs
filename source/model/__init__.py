@@ -25,23 +25,35 @@ class EditableINR(nn.Module):
         self.decoder  = decoder
         self.hashgrid = hashgrid
 
-        self.register_buffer("_frozen_features", torch.empty(0), persistent=True)
+        self.register_buffer(
+            "_frozen_features", 
+            torch.empty(0), 
+            persistent=True
+        )
         
         def _set_param_list(n, pl): 
             setattr(self, f"anchors_{n}", nn.ParameterList(pl))
 
-        for name, params in self.anchors.expose_param_dict().items():
+        for name, params in self.anchors.expose_params().items():
             _set_param_list(name, list(params))
-
-    @property
-    def is_frozen(self): 
-        return self._frozen_features.numel() > 0
 
     def forward(self, coords: torch.Tensor):
         features = (self._frozen_features if self.is_frozen 
             else self.hashgrid(self.anchors.positions))
         queries  = self.bridge(self.anchors, coords, features)
         return self.decoder(queries)
+    
+    @torch.no_grad
+    def densify_anchors(self):
+        print("densifying... ; not implemented")
+
+    @torch.no_grad
+    def prune_anchors(self): 
+        print("pruning... ; not implemented")
+
+    @property
+    def is_frozen(self): 
+        return self._frozen_features.numel() > 0
     
     @torch.no_grad
     def freeze(self):
